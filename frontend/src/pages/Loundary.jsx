@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import axios from "axios";
+import image1 from "../images/image.jpeg";
 
-// API base URL variable
 // const API_BASE_URL = "http://localhost:5000/api";
-const API_BASE_URL= "https://sidra.somsoftsystems.com/api";
+const API_BASE_URL = "https://sidra.somsoftsystems.com/api";
+
 
 const Laundry = () => {
   const [customers, setCustomers] = useState([]);
@@ -28,6 +29,10 @@ const Laundry = () => {
   // Edit Order State
   const [editingOrder, setEditingOrder] = useState(null);
 
+  // Print State
+  const [printData, setPrintData] = useState(null);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+
   // Status colors using only #05E2F2
   const statusColors = {
     'Pending': 'bg-[#05E2F2]/20 text-[#05E2F2]',
@@ -38,6 +43,7 @@ const Laundry = () => {
 
   // Format date with seconds
   const formatDateTimeWithSeconds = (dateString) => {
+    if (!dateString) return "Not Available";
     const date = new Date(dateString);
     return date.toLocaleString('en-US', {
       year: 'numeric',
@@ -50,8 +56,31 @@ const Laundry = () => {
     });
   };
 
+  // Format date for print
+  const formatDateForPrint = (dateString) => {
+    if (!dateString) return "Not Available";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // Format time for print
+  const formatTimeForPrint = (dateString) => {
+    if (!dateString) return "Not Available";
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
   // Get relative time
   const getRelativeTime = (dateString) => {
+    if (!dateString) return "Unknown time";
     const date = new Date(dateString);
     const now = new Date();
     const diffInSeconds = Math.floor((now - date) / 1000);
@@ -98,9 +127,9 @@ const Laundry = () => {
       // Search term matching
       const matchesSearch = searchTerm === "" || 
         order.customer?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.items.some(item => 
-          item.itemName.toLowerCase().includes(searchTerm.toLowerCase())
+        order._id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.items?.some(item => 
+          item.itemName?.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
       // Status filter
@@ -209,7 +238,412 @@ const Laundry = () => {
     });
   };
 
-  // Custom SVG Icons (existing icons remain the same, adding Search icon)
+  // Print Order
+  const handlePrint = (orderData) => {
+    setPrintData(orderData);
+    setShowPrintPreview(true);
+  };
+
+  // Close print modal
+  const closePrintModal = () => {
+    setPrintData(null);
+    setShowPrintPreview(false);
+  };
+
+  // Actual print function - FIXED VERSION
+  const executePrint = () => {
+    // First close the preview modal
+    setShowPrintPreview(false);
+    
+    // Wait a moment for the modal to close, then trigger print
+    setTimeout(() => {
+      // Create a new window for printing
+      const printWindow = window.open('', '_blank');
+      
+      // Get the print content HTML
+      const printContent = document.getElementById('print-receipt-content');
+      
+      if (printContent) {
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Print Receipt</title>
+            <style>
+              @page {
+                margin: 20mm;
+                size: A4;
+              }
+              body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+              }
+              .print-container {
+                max-width: 210mm;
+                margin: 0 auto;
+              }
+              .company-header {
+                text-align: center;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #333;
+                padding-bottom: 20px;
+              }
+              .company-header img {
+                height: 80px;
+                margin-bottom: 10px;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
+              }
+              th, td {
+                border: 1px solid #333;
+                padding: 8px;
+                text-align: left;
+              }
+              th {
+                background-color: #f5f5f5;
+                font-weight: bold;
+              }
+              .total-row {
+                font-weight: bold;
+                background-color: #f5f5f5;
+              }
+              .signature-area {
+                margin-top: 50px;
+                padding-top: 20px;
+                border-top: 1px solid #333;
+              }
+              .signature-box {
+                display: inline-block;
+                width: 30%;
+                text-align: center;
+                margin: 0 1.5%;
+              }
+              .footer {
+                margin-top: 50px;
+                text-align: center;
+                font-size: 12px;
+                color: #666;
+              }
+              @media print {
+                body {
+                  margin: 0;
+                  padding: 0;
+                }
+                .print-container {
+                  padding: 0;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            ${printContent.innerHTML}
+          </body>
+          </html>
+        `);
+        
+        printWindow.document.close();
+        
+        // Wait for content to load, then print
+        setTimeout(() => {
+          printWindow.focus();
+          printWindow.print();
+          printWindow.close();
+        }, 500);
+      }
+    }, 300);
+  };
+
+  // Print Component - UPDATED with proper data display
+  const PrintReceipt = ({ data }) => {
+    if (!data) return null;
+
+    return (
+      <div id="print-receipt-content" style={{ display: 'none' }}>
+        <div className="print-container">
+          {/* Company Header */}
+          <div className="company-header">
+            {image1 && <img src={image1} alt="Company Logo" />}
+            <h1>Laundry Service Pro</h1>
+            <p>Sidra Loundary</p>
+            <p>Dayniile ,MOGADISHO</p>
+            <p><strong>Phone:</strong> 061  0116628</p>
+          </div>
+
+          {/* Order Details */}
+          <div>
+            <h2 style={{ textAlign: 'center', borderBottom: '2px solid #333', paddingBottom: '10px' }}>
+              LAUNDRY SERVICE RECEIPT
+            </h2>
+            
+            <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+              {/* Customer Information */}
+              <div style={{ flex: 1, background: '#f9f9f9', padding: '15px', borderRadius: '5px' }}>
+                <h3 style={{ borderBottom: '1px solid #ccc', paddingBottom: '5px' }}>CUSTOMER INFORMATION</h3>
+                <p><strong>Customer Name:</strong> {data.customer?.fullName || "Not Available"}</p>
+                {/* <p><strong>Customer ID:</strong> {data.customer?._id || "N/A"}</p>
+                <p><strong>Order ID:</strong> {data._id || "N/A"}</p> */}
+                <p><strong>Order Date:</strong> {formatDateForPrint(data.registerDate || data.createdAt)}</p>
+                <p><strong>Order Time:</strong> {formatTimeForPrint(data.registerDate || data.createdAt)}</p>
+              </div>
+
+              {/* Order Information */}
+              <div style={{ flex: 1, background: '#f9f9f9', padding: '15px', borderRadius: '5px' }}>
+                <h3 style={{ borderBottom: '1px solid #ccc', paddingBottom: '5px' }}>ORDER INFORMATION</h3>
+                <p><strong>Status:</strong> {data.status || "N/A"}</p>
+                <p><strong>Pickup Date:</strong> {formatDateForPrint(data.pickupTime)}</p>
+                <p><strong>Pickup Time:</strong> {formatTimeForPrint(data.pickupTime)}</p>
+                <p><strong>Total Items:</strong> {data.items?.length || 0}</p>
+                <p><strong>Total Amount:</strong> <span style={{ color: 'green', fontWeight: 'bold' }}>${data.totalPayment || "0.00"}</span></p>
+              </div>
+            </div>
+
+            {/* Items Table */}
+            <div>
+              <h3 style={{ borderBottom: '1px solid #ccc', paddingBottom: '5px' }}>ORDER ITEMS DETAILS</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>ITEM NAME</th>
+                    <th>QUANTITY</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.items && data.items.map((item, index) => (
+                    <tr key={index}>
+                      <td style={{ textAlign: 'center' }}>{index + 1}</td>
+                      <td>{item.itemName || "N/A"}</td>
+                      <td style={{ textAlign: 'center' }}>{item.qty || "0"}</td>
+                    </tr>
+                  ))}
+                  {/* Total Row */}
+                  <tr className="total-row">
+                    <td colSpan="2" style={{ textAlign: 'right', paddingRight: '20px' }}>
+                      TOTAL AMOUNT:
+                    </td>
+                    <td style={{ textAlign: 'center', color: 'green', fontWeight: 'bold' }}>
+                      ${data.totalPayment || "0.00"}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Terms and Conditions */}
+            {/* <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '2px solid #333' }}>
+              <h4>TERMS & CONDITIONS</h4>
+              <ul style={{ fontSize: '12px' }}>
+                <li>Items must be picked up within 7 days of notification</li>
+                <li>We are not responsible for damaged personal items</li>
+                <li>Payment is due upon pickup of items</li>
+                <li>Claims must be made within 24 hours of pickup</li>
+              </ul>
+            </div> */}
+            
+            {/* Signature Area */}
+            {/* <div className="signature-area">
+              <div className="signature-box">
+                <div style={{ height: '50px', borderBottom: '1px solid #333', marginBottom: '10px' }}></div>
+                <p>Customer Signature</p>
+              </div>
+              <div className="signature-box">
+                <div style={{ height: '50px', borderBottom: '1px solid #333', marginBottom: '10px' }}></div>
+                <p>Authorized Signature</p>
+              </div>
+              <div className="signature-box">
+                <div style={{ height: '50px', borderBottom: '1px solid #333', marginBottom: '10px' }}></div>
+                <p>Date</p>
+              </div>
+            </div> */}
+
+            {/* Footer */}
+            {/* <div className="footer">
+              <p>This is a computer-generated receipt. No signature is required.</p>
+              <p>For any inquiries, please contact us at: 0610116628</p>
+              <p>Thank you for your business!</p>
+              <p>Receipt ID: {data._id || "N/A"} | Printed on: {new Date().toLocaleString()}</p>
+            </div> */}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Print Preview Modal
+  const PrintPreviewModal = ({ data, onClose, onPrint }) => {
+    if (!data) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+          {/* Modal Header */}
+          <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-[#05E2F2] to-[#05E2F2]/80">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center mr-4">
+                  <PrintIcon />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Print Preview</h2>
+                  <p className="text-white/90">Order #{data._id?.slice(-6) || "N/A"} • {data.customer?.fullName || "No Customer"}</p>
+                </div>
+              </div>
+              <button
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors duration-200 text-white"
+                onClick={onClose}
+              >
+                <XIcon />
+              </button>
+            </div>
+          </div>
+
+          {/* Modal Body - Print Preview */}
+          <div className="p-6 overflow-y-auto max-h-[70vh]">
+            <div className="bg-white p-8 border-2 border-gray-300 rounded-lg shadow-inner">
+              {/* Company Header */}
+              <div className="text-center mb-8 border-b-2 border-gray-300 pb-6">
+                {image1 && <img src={image1} alt="Company Logo" className="h-40 mx-auto mb-4" />}
+                <h1 className="text-3xl font-bold text-gray-800 mb-2">Laundry Service Pro</h1>
+                <p className="text-gray-600 mb-1">Sidra Loundary</p>
+                <p className="text-gray-600 mb-1">Dayniile ,MOGADISHO</p>
+                <p className="text-gray-600 font-semibold text-lg">Phone: 0610116628</p>
+              </div>
+
+              {/* Order Details */}
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center border-b-2 border-gray-300 pb-3">
+                  LAUNDRY SERVICE RECEIPT
+                </h2>
+                
+                <div className="grid grid-cols-2 gap-6 mb-8">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="font-bold text-gray-700 mb-3 text-lg border-b pb-2">CUSTOMER INFORMATION</h3>
+                    <div className="space-y-2">
+                      <p className="mb-2">
+                        <span className="font-medium text-gray-700">Customer Name:</span> 
+                        <span className="ml-2 text-gray-900 font-semibold">{data.customer?.fullName || "Not Available"}</span>
+                      </p>
+                      {/* <p className="mb-2">
+                        <span className="font-medium text-gray-700">Customer ID:</span> 
+                        <span className="ml-2 text-gray-900 font-semibold">{data.customer?._id || "N/A"}</span>
+                      </p> */}
+                      <p className="mb-2">
+                        {/* <span className="font-medium text-gray-700">Order ID:</span> 
+                        <span className="ml-2 text-gray-900 font-semibold">{data._id || "N/A"}</span> */}
+                      </p>
+                      <p className="mb-2">
+                        <span className="font-medium text-gray-700">Order Date:</span> 
+                        <span className="ml-2 text-gray-900 font-semibold">{formatDateForPrint(data.registerDate || data.createdAt)}</span>
+                      </p>
+                      <p className="mb-2">
+                        <span className="font-medium text-gray-700">Order Time:</span> 
+                        <span className="ml-2 text-gray-900 font-semibold">{formatTimeForPrint(data.registerDate || data.createdAt)}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="font-bold text-gray-700 mb-3 text-lg border-b pb-2">ORDER INFORMATION</h3>
+                    <div className="space-y-2">
+                      <p className="mb-2">
+                        <span className="font-medium text-gray-700">Status:</span> 
+                        <span className="ml-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
+                          {data.status || "N/A"}
+                        </span>
+                      </p>
+                      <p className="mb-2">
+                        <span className="font-medium text-gray-700">Pickup Date:</span> 
+                        <span className="ml-2 text-gray-900 font-semibold">{formatDateForPrint(data.pickupTime)}</span>
+                      </p>
+                      <p className="mb-2">
+                        <span className="font-medium text-gray-700">Pickup Time:</span> 
+                        <span className="ml-2 text-gray-900 font-semibold">{formatTimeForPrint(data.pickupTime)}</span>
+                      </p>
+                      <p className="mb-2">
+                        <span className="font-medium text-gray-700">Total Items:</span> 
+                        <span className="ml-2 text-gray-900 font-semibold">{data.items?.length || 0}</span>
+                      </p>
+                      <p className="mb-2">
+                        <span className="font-medium text-gray-700">Total Amount:</span> 
+                        <span className="ml-2 text-green-600 font-bold text-xl">${data.totalPayment || "0.00"}</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Items Table */}
+                <div className="mb-6">
+                  <h3 className="font-bold text-gray-700 mb-4 text-lg border-b pb-2">ORDER ITEMS</h3>
+                  <div className="border border-gray-300 rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="p-3 text-left font-bold text-gray-700">#</th>
+                          <th className="p-3 text-left font-bold text-gray-700">Item Name</th>
+                          <th className="p-3 text-left font-bold text-gray-700">Quantity</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.items && data.items.map((item, index) => (
+                          <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                            <td className="p-3 border-t border-gray-200 text-center">{index + 1}</td>
+                            <td className="p-3 border-t border-gray-200">{item.itemName || "N/A"}</td>
+                            <td className="p-3 border-t border-gray-200 text-center">{item.qty || "0"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-gray-700 text-lg">Total Amount:</span>
+                      <span className="text-green-600 font-bold text-2xl">${data.totalPayment || "0.00"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-center text-gray-700 font-medium">
+                    Click "Print Receipt" to print this order on Epson printer.
+                  </p>
+                  <p className="text-center text-gray-600 text-sm mt-2">
+                    All data will be printed including customer details, order information, and items list.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Modal Footer */}
+          <div className="p-6 border-t border-gray-200 bg-gray-50">
+            <div className="flex justify-end gap-4">
+              <button
+                className="px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-all duration-200"
+                onClick={onClose}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-6 py-3 bg-[#05E2F2] text-white font-semibold rounded-xl hover:bg-[#05E2F2]/90 hover:shadow-lg transition-all duration-200 flex items-center"
+                onClick={() => {
+                  onPrint();
+                }}
+              >
+                <PrintIcon />
+                <span className="ml-2">Print Receipt</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Custom SVG Icons (keep all the same icon components from your original code)
   const SearchIcon = () => (
     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
       <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
@@ -228,7 +662,6 @@ const Laundry = () => {
     </svg>
   );
 
-  // ... (All your existing icons remain here - PlusIcon, UserIcon, CalendarIcon, etc.)
   const PlusIcon = () => (
     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
       <path fillRule="evenodd" d="M10 3a1 1 0 00-1 1v5H4a1 1 0 100 2h5v5a1 1 0 102 0v-5h5a1 1 0 100-2h-5V4a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -302,520 +735,201 @@ const Laundry = () => {
     </svg>
   );
 
+  const PrintIcon = () => (
+    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
+    </svg>
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#05E2F2]/5 to-white p-4 md:p-8">
-      {/* Header */}
-      <div className="max-w-7xl mx-auto mb-10">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-3xl md:text-4xl font-bold text-[#05E2F2]">
-            Laundry Management
-          </h1>
-          <div className="flex items-center space-x-2">
-            <div className="w-10 h-10 rounded-full bg-[#05E2F2] flex items-center justify-center">
-              <PackageIcon />
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-[#05E2F2]/5 to-white p-4 md:p-8">
+        {/* Header */}
+        <div className="max-w-7xl mx-auto mb-10">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-3xl md:text-4xl font-bold text-[#05E2F2]">
+              Laundry Management
+            </h1>
+            <div className="flex items-center space-x-2">
+              <div className="w-10 h-10 rounded-full bg-[#05E2F2] flex items-center justify-center">
+                <PackageIcon />
+              </div>
+              <span className="text-[#05E2F2]/70 font-medium">Admin Panel</span>
             </div>
-            <span className="text-[#05E2F2]/70 font-medium">Admin Panel</span>
           </div>
+          <p className="text-[#05E2F2]/70">Manage your laundry orders efficiently</p>
         </div>
-        <p className="text-[#05E2F2]/70">Manage your laundry orders efficiently</p>
-      </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Left Column - Create Order */}
-        <div className="lg:col-span-2">
-          {/* Search and Filter Section */}
-          <div className="bg-white rounded-2xl shadow-xl p-6 mb-8 border border-[#05E2F2]/20">
-            <div className="flex items-center mb-6">
-              <div className="w-12 h-12 rounded-xl bg-[#05E2F2]/10 flex items-center justify-center mr-4">
-                <SearchIcon />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-[#05E2F2]">Search Orders</h2>
-                <p className="text-[#05E2F2]/70">Find specific orders quickly</p>
-              </div>
-            </div>
-
-            {/* Search Input */}
-            <div className="relative mb-6">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <SearchIcon />
-              </div>
-              <input
-                type="text"
-                className="w-full pl-12 pr-12 p-4 border border-[#05E2F2]/30 rounded-xl focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200 bg-white"
-                placeholder="Search by customer name, order ID, or item name..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              {searchTerm && (
-                <button
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setSearchTerm("")}
-                >
-                  <XIcon />
-                </button>
-              )}
-            </div>
-
-            {/* Filter Options */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Status Filter */}
-              <div className="space-y-2">
-                <label className="flex items-center text-[#05E2F2] font-medium">
-                  <FilterIcon />
-                  <span className="ml-2">Status</span>
-                </label>
-                <select
-                  className="w-full p-3 border border-[#05E2F2]/30 rounded-lg focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200"
-                  value={searchFilters.status}
-                  onChange={(e) => setSearchFilters({...searchFilters, status: e.target.value})}
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="Pending">Pending</option>
-                  <option value="In-Progress">In-Progress</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Delivered">Delivered</option>
-                </select>
-              </div>
-
-              {/* Date Range Filter */}
-              <div className="space-y-2">
-                <label className="flex items-center text-[#05E2F2] font-medium">
-                  <CalendarIcon />
-                  <span className="ml-2">Date Range</span>
-                </label>
-                <select
-                  className="w-full p-3 border border-[#05E2F2]/30 rounded-lg focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200"
-                  value={searchFilters.dateRange}
-                  onChange={(e) => setSearchFilters({...searchFilters, dateRange: e.target.value})}
-                >
-                  <option value="all">All Time</option>
-                  <option value="today">Today</option>
-                  <option value="week">Last 7 Days</option>
-                  <option value="month">Last 30 Days</option>
-                </select>
-              </div>
-
-              {/* Results and Clear */}
-              <div className="space-y-2">
-                <label className="text-[#05E2F2] font-medium">Results</label>
-                <div className="flex items-center justify-between">
-                  <div className="p-3 bg-[#05E2F2]/10 rounded-lg">
-                    <span className="text-[#05E2F2] font-bold">{filteredOrders.length}</span>
-                    <span className="text-[#05E2F2]/70 ml-2">orders found</span>
-                  </div>
-                  {(searchTerm || searchFilters.status !== "all" || searchFilters.dateRange !== "all") && (
-                    <button
-                      onClick={clearSearch}
-                      className="p-3 text-[#05E2F2] hover:bg-[#05E2F2]/10 rounded-lg transition-colors duration-200 flex items-center"
-                    >
-                      <XIcon />
-                      <span className="ml-1">Clear</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Create Order Card (existing code remains the same) */}
-          <div className="bg-white rounded-2xl shadow-xl p-6 mb-8 border border-[#05E2F2]/20">
-            <div className="flex items-center mb-6">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-[#05E2F2] to-[#05E2F2]/80 flex items-center justify-center mr-4">
-                <PlusIcon />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-[#05E2F2]">Create New Order</h2>
-                <p className="text-[#05E2F2]/70">Add a new laundry order</p>
-              </div>
-            </div>
-
-            <form onSubmit={submitOrder} className="space-y-6">
-              {/* Customer Selection */}
-              <div className="space-y-2">
-                <label className="flex items-center text-[#05E2F2] font-medium">
-                  <UserIcon />
-                  <span className="ml-2">Customer</span>
-                </label>
-                <select
-                  className="w-full p-3 border border-[#05E2F2]/30 rounded-xl focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200 appearance-none bg-white"
-                  value={order.customer}
-                  onChange={(e) => setOrder({ ...order, customer: e.target.value })}
-                  required
-                >
-                  <option value="" className="text-gray-400">Select a customer...</option>
-                  {customers.map((c) => (
-                    <option key={c._id} value={c._id} className="text-gray-700">
-                      {c.fullName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Pickup Time */}
-              <div className="space-y-2">
-                <label className="flex items-center text-[#05E2F2] font-medium">
-                  <CalendarIcon />
-                  <span className="ml-2">Pickup Date & Time</span>
-                </label>
-                <input
-                  type="datetime-local"
-                  className="w-full p-3 border border-[#05E2F2]/30 rounded-xl focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200"
-                  value={order.pickupTime}
-                  onChange={(e) => setOrder({ ...order, pickupTime: e.target.value })}
-                  required
-                />
-              </div>
-
-              {/* Items Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center text-[#05E2F2] font-medium">
-                    <PackageIcon />
-                    <span className="ml-2">Order Items</span>
-                  </label>
-                  <span className="text-sm text-[#05E2F2]/70">{order.items.length} item(s)</span>
-                </div>
-
-                {order.items.map((row, index) => (
-                  <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-[#05E2F2]/5 p-4 rounded-xl border border-[#05E2F2]/20">
-                    <div className="md:col-span-6">
-                      <select
-                        className="w-full p-3 border border-[#05E2F2]/30 rounded-lg focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200"
-                        value={row.itemName}
-                        onChange={(e) =>
-                          updateItemField(index, "itemName", e.target.value, setOrder, order)
-                        }
-                        required
-                      >
-                        <option value="" className="text-gray-400">Select an item...</option>
-                        {itemsList.map((item) => (
-                          <option key={item._id} value={item.name}>
-                            {item.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="md:col-span-4">
-                      <input
-                        type="number"
-                        placeholder="Quantity"
-                        className="w-full p-3 border border-[#05E2F2]/30 rounded-lg focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200"
-                        value={row.qty}
-                        onChange={(e) =>
-                          updateItemField(index, "qty", e.target.value, setOrder, order)
-                        }
-                        min="1"
-                        required
-                      />
-                    </div>
-
-                    <div className="md:col-span-2 flex justify-end">
-                      {order.items.length > 1 && (
-                        <button
-                          type="button"
-                          className="p-2 text-[#05E2F2] hover:bg-[#05E2F2]/10 rounded-lg transition-colors duration-200"
-                          onClick={() => removeItemRow(index, setOrder, order)}
-                        >
-                          <TrashIcon />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                <button
-                  type="button"
-                  className="flex items-center justify-center w-full p-3 border-2 border-dashed border-[#05E2F2]/30 rounded-xl text-[#05E2F2] hover:border-[#05E2F2] hover:text-[#05E2F2] transition-all duration-200 hover:bg-[#05E2F2]/5"
-                  onClick={() => addItemRow(setOrder, order)}
-                >
-                  <PlusIcon />
-                  <span className="ml-2">Add Another Item</span>
-                </button>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full p-4 bg-[#05E2F2] text-white font-semibold rounded-xl hover:bg-[#05E2F2]/90 hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <span className="flex items-center justify-center">
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Creating Order...
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center">
-                    <CheckCircleIcon />
-                    <span className="ml-2">Create Order</span>
-                  </span>
-                )}
-              </button>
-            </form>
-          </div>
-
-          {/* Orders List */}
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center">
-                <div className="w-12 h-12 rounded-xl bg-[#05E2F2] flex items-center justify-center mr-4">
-                  <MenuIcon />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-[#05E2F2]">All Orders</h2>
-                  <p className="text-[#05E2F2]/70">
-                    Showing {filteredOrders.length} of {orders.length} order(s)
-                  </p>
-                </div>
-              </div>
-              {filteredOrders.length !== orders.length && (
-                <button
-                  onClick={clearSearch}
-                  className="flex items-center px-4 py-2 text-[#05E2F2] hover:bg-[#05E2F2]/10 rounded-lg transition-colors duration-200"
-                >
-                  <XIcon />
-                  <span className="ml-2">Clear Search</span>
-                </button>
-              )}
-            </div>
-
-            {isLoading ? (
-              <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#05E2F2]"></div>
-              </div>
-            ) : filteredOrders.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-[#05E2F2]/10 flex items-center justify-center">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Left Column - Create Order */}
+          <div className="lg:col-span-2">
+            {/* Search and Filter Section */}
+            <div className="bg-white rounded-2xl shadow-xl p-6 mb-8 border border-[#05E2F2]/20">
+              <div className="flex items-center mb-6">
+                <div className="w-12 h-12 rounded-xl bg-[#05E2F2]/10 flex items-center justify-center mr-4">
                   <SearchIcon />
                 </div>
-                <h3 className="text-xl font-bold text-[#05E2F2] mb-2">No orders found</h3>
-                <p className="text-[#05E2F2]/70">
-                  {searchTerm ? `No orders matching "${searchTerm}"` : "No orders match your filters"}
-                </p>
-                {(searchTerm || searchFilters.status !== "all" || searchFilters.dateRange !== "all") && (
+                <div>
+                  <h2 className="text-2xl font-bold text-[#05E2F2]">Search Orders</h2>
+                  <p className="text-[#05E2F2]/70">Find specific orders quickly</p>
+                </div>
+              </div>
+
+              {/* Search Input */}
+              <div className="relative mb-6">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <SearchIcon />
+                </div>
+                <input
+                  type="text"
+                  className="w-full pl-12 pr-12 p-4 border border-[#05E2F2]/30 rounded-xl focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200 bg-white"
+                  placeholder="Search by customer name, order ID, or item name..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && (
                   <button
-                    onClick={clearSearch}
-                    className="mt-4 px-6 py-2 bg-[#05E2F2] text-white rounded-lg hover:bg-[#05E2F2]/90 transition-colors duration-200"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    onClick={() => setSearchTerm("")}
                   >
-                    Clear Search & Filters
+                    <XIcon />
                   </button>
                 )}
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredOrders.map((o) => (
-                  <div key={o._id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-200 overflow-hidden border border-[#05E2F2]/20">
-                    <div className="p-5">
-                      {/* Header with Creation Time */}
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <h3 className="font-bold text-lg text-[#05E2F2]">
-                            Order #{o._id.slice(-6)}
-                          </h3>
-                          <div className="flex items-center mt-1">
-                            <UserIcon />
-                            <span className="ml-1 font-medium text-[#05E2F2]/80">{o.customer?.fullName}</span>
-                          </div>
-                          {/* Creation Time Display */}
-                          <div className="mt-2 space-y-1">
-                            <p className="text-xs text-[#05E2F2]/60">
-                              <span className="font-medium">Created:</span> {formatDateTimeWithSeconds(o.registerDate || o.createdAt)}
-                            </p>
-                            <p className="text-xs text-[#05E2F2]/50">
-                              {getRelativeTime(o.registerDate || o.createdAt)}
-                            </p>
-                          </div>
-                        </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[o.status]}`}>
-                          {o.status}
-                        </span>
-                      </div>
 
-                      {/* Details */}
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div className="flex items-center">
-                          <ClockIcon />
-                          <div className="ml-2">
-                            <p className="text-sm text-[#05E2F2]/70">Pickup</p>
-                            <p className="text-sm font-medium text-[#05E2F2]">
-                              {new Date(o.pickupTime).toLocaleDateString()}
-                            </p>
-                            <p className="text-xs text-[#05E2F2]/60">
-                              {new Date(o.pickupTime).toLocaleTimeString([], { 
-                                hour: '2-digit', 
-                                minute: '2-digit',
-                                second: '2-digit' 
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center">
-                          <DollarIcon />
-                          <div className="ml-2">
-                            <p className="text-sm text-[#05E2F2]/70">Total</p>
-                            <p className="text-lg font-bold text-[#05E2F2]">${o.totalPayment}</p>
-                          </div>
-                        </div>
-                      </div>
+              {/* Filter Options */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Status Filter */}
+                <div className="space-y-2">
+                  <label className="flex items-center text-[#05E2F2] font-medium">
+                    <FilterIcon />
+                    <span className="ml-2">Status</span>
+                  </label>
+                  <select
+                    className="w-full p-3 border border-[#05E2F2]/30 rounded-lg focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200"
+                    value={searchFilters.status}
+                    onChange={(e) => setSearchFilters({...searchFilters, status: e.target.value})}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="In-Progress">In-Progress</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Delivered">Delivered</option>
+                  </select>
+                </div>
 
-                      {/* Items */}
-                      <div className="mb-4">
-                        <p className="text-sm font-medium text-[#05E2F2] mb-2">Items:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {o.items.map((i, index) => (
-                            <span key={index} className="px-3 py-1 bg-[#05E2F2]/10 rounded-lg text-sm text-[#05E2F2]">
-                              {i.itemName} × {i.qty}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+                {/* Date Range Filter */}
+                <div className="space-y-2">
+                  <label className="flex items-center text-[#05E2F2] font-medium">
+                    <CalendarIcon />
+                    <span className="ml-2">Date Range</span>
+                  </label>
+                  <select
+                    className="w-full p-3 border border-[#05E2F2]/30 rounded-lg focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200"
+                    value={searchFilters.dateRange}
+                    onChange={(e) => setSearchFilters({...searchFilters, dateRange: e.target.value})}
+                  >
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">Last 7 Days</option>
+                    <option value="month">Last 30 Days</option>
+                  </select>
+                </div>
 
-                      {/* Status Selector */}
-                      <select
-                        className="w-full p-2 border border-[#05E2F2]/30 rounded-lg mb-4 focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200 text-[#05E2F2]"
-                        value={o.status}
-                        onChange={(e) => updateStatus(o._id, e.target.value)}
+                {/* Results and Clear */}
+                <div className="space-y-2">
+                  <label className="text-[#05E2F2] font-medium">Results</label>
+                  <div className="flex items-center justify-between">
+                    <div className="p-3 bg-[#05E2F2]/10 rounded-lg">
+                      <span className="text-[#05E2F2] font-bold">{filteredOrders.length}</span>
+                      <span className="text-[#05E2F2]/70 ml-2">orders found</span>
+                    </div>
+                    {(searchTerm || searchFilters.status !== "all" || searchFilters.dateRange !== "all") && (
+                      <button
+                        onClick={clearSearch}
+                        className="p-3 text-[#05E2F2] hover:bg-[#05E2F2]/10 rounded-lg transition-colors duration-200 flex items-center"
                       >
-                        <option>Pending</option>
-                        <option>In-Progress</option>
-                        <option>Completed</option>
-                        <option>Delivered</option>
-                      </select>
-
-                      {/* Actions */}
-                      <div className="flex gap-2">
-                        <button
-                          className="flex-1 flex items-center justify-center gap-2 p-2 bg-[#05E2F2] text-white rounded-lg hover:bg-[#05E2F2]/90 hover:shadow-md transition-all duration-200"
-                          onClick={() => setEditingOrder(o)}
-                        >
-                          <EditIcon />
-                          Edit
-                        </button>
-                        <button
-                          className="flex-1 flex items-center justify-center gap-2 p-2 bg-[#05E2F2]/10 text-[#05E2F2] rounded-lg hover:bg-[#05E2F2]/20 hover:shadow-md transition-all duration-200"
-                          onClick={() => deleteOrder(o._id)}
-                        >
-                          <TrashIcon />
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column - Stats (existing code remains the same) */}
-        <div className="lg:col-span-1">
-          {/* Stats Card */}
-          <div className="bg-[#05E2F2] rounded-2xl shadow-xl p-6 text-white mb-6">
-            <h3 className="text-xl font-bold mb-6">Overview</h3>
-            <div className="space-y-4">
-              <div className="bg-white/20 p-4 rounded-xl">
-                <p className="text-sm opacity-90">Total Orders</p>
-                <p className="text-3xl font-bold">{orders.length}</p>
-              </div>
-              <div className="bg-white/20 p-4 rounded-xl">
-                <p className="text-sm opacity-90">Active Customers</p>
-                <p className="text-3xl font-bold">{customers.length}</p>
-              </div>
-              <div className="bg-white/20 p-4 rounded-xl">
-                <p className="text-sm opacity-90">Available Items</p>
-                <p className="text-3xl font-bold">{itemsList.length}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Status */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-[#05E2F2]/20">
-            <h3 className="text-lg font-bold text-[#05E2F2] mb-4">Order Status</h3>
-            <div className="space-y-3">
-              {Object.entries(statusColors).map(([status, colorClass]) => {
-                const count = orders.filter(o => o.status === status).length;
-                return (
-                  <div key={status} className="flex items-center justify-between p-3 hover:bg-[#05E2F2]/5 rounded-lg transition-colors duration-200">
-                    <div className="flex items-center">
-                      <div className={`w-3 h-3 rounded-full mr-3 bg-[#05E2F2] ${colorClass.includes('20') ? 'opacity-20' : colorClass.includes('30') ? 'opacity-30' : colorClass.includes('40') ? 'opacity-40' : 'opacity-50'}`}></div>
-                      <span className="text-[#05E2F2]">{status}</span>
-                    </div>
-                    <span className="font-bold text-[#05E2F2]">{count}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Recent Activity */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 mt-6 border border-[#05E2F2]/20">
-            <h3 className="text-lg font-bold text-[#05E2F2] mb-4">Recent Activity</h3>
-            <div className="space-y-4">
-              {orders.slice(0, 3).map((o) => (
-                <div key={o._id} className="flex items-center p-3 hover:bg-[#05E2F2]/5 rounded-lg transition-colors duration-200">
-                  <div className="w-10 h-10 rounded-full bg-[#05E2F2]/10 flex items-center justify-center mr-3">
-                    <PackageIcon />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-[#05E2F2]">{o.customer?.fullName}</p>
-                    <p className="text-sm text-[#05E2F2]/70">
-                      ${o.totalPayment} • {o.items.length} item(s)
-                    </p>
-                    <p className="text-xs text-[#05E2F2]/50">
-                      {getRelativeTime(o.registerDate || o.createdAt)}
-                    </p>
-                  </div>
-                  <ChevronRightIcon />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Edit Modal (existing code remains the same) */}
-      {editingOrder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-[#05E2F2]/20">
-            {/* Modal Header */}
-            <div className="p-6 border-b border-[#05E2F2]/10">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-xl bg-[#05E2F2] flex items-center justify-center mr-3">
-                    <EditIcon />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-[#05E2F2]">Edit Order</h2>
-                    <p className="text-sm text-[#05E2F2]/70">Order #{editingOrder._id?.slice(-6)}</p>
+                        <XIcon />
+                        <span className="ml-1">Clear</span>
+                      </button>
+                    )}
                   </div>
                 </div>
-                <button
-                  className="p-2 hover:bg-[#05E2F2]/10 rounded-lg transition-colors duration-200"
-                  onClick={() => setEditingOrder(null)}
-                >
-                  <XIcon />
-                </button>
               </div>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6">
-              {/* Edit Items */}
-              <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                {editingOrder.items.map((row, index) => (
-                  <div key={index} className="bg-[#05E2F2]/5 p-4 rounded-xl border border-[#05E2F2]/20">
-                    <div className="grid grid-cols-2 gap-3 mb-3">
-                      <div className="col-span-2">
+            {/* Create Order Card */}
+            <div className="bg-white rounded-2xl shadow-xl p-6 mb-8 border border-[#05E2F2]/20">
+              <div className="flex items-center mb-6">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-[#05E2F2] to-[#05E2F2]/80 flex items-center justify-center mr-4">
+                  <PlusIcon />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-[#05E2F2]">Create New Order</h2>
+                  <p className="text-[#05E2F2]/70">Add a new laundry order</p>
+                </div>
+              </div>
+
+              <form onSubmit={submitOrder} className="space-y-6">
+                {/* Customer Selection */}
+                <div className="space-y-2">
+                  <label className="flex items-center text-[#05E2F2] font-medium">
+                    <UserIcon />
+                    <span className="ml-2">Customer</span>
+                  </label>
+                  <select
+                    className="w-full p-3 border border-[#05E2F2]/30 rounded-xl focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200 appearance-none bg-white"
+                    value={order.customer}
+                    onChange={(e) => setOrder({ ...order, customer: e.target.value })}
+                    required
+                  >
+                    <option value="" className="text-gray-400">Select a customer...</option>
+                    {customers.map((c) => (
+                      <option key={c._id} value={c._id} className="text-gray-700">
+                        {c.fullName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Pickup Time */}
+                <div className="space-y-2">
+                  <label className="flex items-center text-[#05E2F2] font-medium">
+                    <CalendarIcon />
+                    <span className="ml-2">Pickup Date & Time</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    className="w-full p-3 border border-[#05E2F2]/30 rounded-xl focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200"
+                    value={order.pickupTime}
+                    onChange={(e) => setOrder({ ...order, pickupTime: e.target.value })}
+                    required
+                  />
+                </div>
+
+                {/* Items Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center text-[#05E2F2] font-medium">
+                      <PackageIcon />
+                      <span className="ml-2">Order Items</span>
+                    </label>
+                    <span className="text-sm text-[#05E2F2]/70">{order.items.length} item(s)</span>
+                  </div>
+
+                  {order.items.map((row, index) => (
+                    <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-[#05E2F2]/5 p-4 rounded-xl border border-[#05E2F2]/20">
+                      <div className="md:col-span-6">
                         <select
                           className="w-full p-3 border border-[#05E2F2]/30 rounded-lg focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200"
                           value={row.itemName}
                           onChange={(e) =>
-                            updateItemField(index, "itemName", e.target.value, setEditingOrder, editingOrder)
+                            updateItemField(index, "itemName", e.target.value, setOrder, order)
                           }
+                          required
                         >
+                          <option value="" className="text-gray-400">Select an item...</option>
                           {itemsList.map((item) => (
                             <option key={item._id} value={item.name}>
                               {item.name}
@@ -823,70 +937,416 @@ const Laundry = () => {
                           ))}
                         </select>
                       </div>
-                      <div>
+
+                      <div className="md:col-span-4">
                         <input
                           type="number"
                           placeholder="Quantity"
                           className="w-full p-3 border border-[#05E2F2]/30 rounded-lg focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200"
                           value={row.qty}
                           onChange={(e) =>
-                            updateItemField(index, "qty", e.target.value, setEditingOrder, editingOrder)
+                            updateItemField(index, "qty", e.target.value, setOrder, order)
                           }
                           min="1"
+                          required
                         />
                       </div>
-                      <div className="flex items-center justify-end">
-                        {editingOrder.items.length > 1 && (
+
+                      <div className="md:col-span-2 flex justify-end">
+                        {order.items.length > 1 && (
                           <button
+                            type="button"
                             className="p-2 text-[#05E2F2] hover:bg-[#05E2F2]/10 rounded-lg transition-colors duration-200"
-                            onClick={() => removeItemRow(index, setEditingOrder, editingOrder)}
+                            onClick={() => removeItemRow(index, setOrder, order)}
                           >
                             <TrashIcon />
                           </button>
                         )}
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
 
-              {/* Add Item Button */}
-              <button
-                className="w-full flex items-center justify-center p-3 border-2 border-dashed border-[#05E2F2]/30 rounded-xl text-[#05E2F2] hover:border-[#05E2F2] hover:text-[#05E2F2] transition-all duration-200 mt-4"
-                onClick={() => addItemRow(setEditingOrder, editingOrder)}
-              >
-                <PlusIcon />
-                <span className="ml-2">Add Another Item</span>
-              </button>
+                  <button
+                    type="button"
+                    className="flex items-center justify-center w-full p-3 border-2 border-dashed border-[#05E2F2]/30 rounded-xl text-[#05E2F2] hover:border-[#05E2F2] hover:text-[#05E2F2] transition-all duration-200 hover:bg-[#05E2F2]/5"
+                    onClick={() => addItemRow(setOrder, order)}
+                  >
+                    <PlusIcon />
+                    <span className="ml-2">Add Another Item</span>
+                  </button>
+                </div>
 
-              {/* Modal Actions */}
-              <div className="flex gap-3 mt-6">
+                {/* Submit Button */}
                 <button
-                  className="flex-1 flex items-center justify-center gap-2 p-3 bg-[#05E2F2] text-white font-semibold rounded-xl hover:bg-[#05E2F2]/90 hover:shadow-lg transition-all duration-200"
-                  onClick={submitUpdate}
+                  type="submit"
                   disabled={isLoading}
+                  className="w-full p-4 bg-[#05E2F2] text-white font-semibold rounded-xl hover:bg-[#05E2F2]/90 hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span className="flex items-center justify-center">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Creating Order...
+                    </span>
                   ) : (
-                    <>
-                      <SaveIcon />
-                      Save Changes
-                    </>
+                    <span className="flex items-center justify-center">
+                      <CheckCircleIcon />
+                      <span className="ml-2">Create Order</span>
+                    </span>
                   )}
                 </button>
-                <button
-                  className="flex-1 p-3 border border-[#05E2F2]/30 text-[#05E2F2] font-semibold rounded-xl hover:bg-[#05E2F2]/5 transition-all duration-200"
-                  onClick={() => setEditingOrder(null)}
-                >
-                  Cancel
-                </button>
+              </form>
+            </div>
+
+            {/* Orders List */}
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 rounded-xl bg-[#05E2F2] flex items-center justify-center mr-4">
+                    <MenuIcon />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-[#05E2F2]">All Orders</h2>
+                    <p className="text-[#05E2F2]/70">
+                      Showing {filteredOrders.length} of {orders.length} order(s)
+                    </p>
+                  </div>
+                </div>
+                {filteredOrders.length !== orders.length && (
+                  <button
+                    onClick={clearSearch}
+                    className="flex items-center px-4 py-2 text-[#05E2F2] hover:bg-[#05E2F2]/10 rounded-lg transition-colors duration-200"
+                  >
+                    <XIcon />
+                    <span className="ml-2">Clear Search</span>
+                  </button>
+                )}
+              </div>
+
+              {isLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#05E2F2]"></div>
+                </div>
+              ) : filteredOrders.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-[#05E2F2]/10 flex items-center justify-center">
+                    <SearchIcon />
+                  </div>
+                  <h3 className="text-xl font-bold text-[#05E2F2] mb-2">No orders found</h3>
+                  <p className="text-[#05E2F2]/70">
+                    {searchTerm ? `No orders matching "${searchTerm}"` : "No orders match your filters"}
+                  </p>
+                  {(searchTerm || searchFilters.status !== "all" || searchFilters.dateRange !== "all") && (
+                    <button
+                      onClick={clearSearch}
+                      className="mt-4 px-6 py-2 bg-[#05E2F2] text-white rounded-lg hover:bg-[#05E2F2]/90 transition-colors duration-200"
+                    >
+                      Clear Search & Filters
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredOrders.map((o) => (
+                    <div key={o._id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-200 overflow-hidden border border-[#05E2F2]/20">
+                      <div className="p-5">
+                        {/* Header with Creation Time */}
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h3 className="font-bold text-lg text-[#05E2F2]">
+                              Order #{o._id?.slice(-6)}
+                            </h3>
+                            <div className="flex items-center mt-1">
+                              <UserIcon />
+                              <span className="ml-1 font-medium text-[#05E2F2]/80">{o.customer?.fullName}</span>
+                            </div>
+                            {/* Creation Time Display */}
+                            <div className="mt-2 space-y-1">
+                              <p className="text-xs text-[#05E2F2]/60">
+                                <span className="font-medium">Created:</span> {formatDateTimeWithSeconds(o.registerDate || o.createdAt)}
+                              </p>
+                              <p className="text-xs text-[#05E2F2]/50">
+                                {getRelativeTime(o.registerDate || o.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[o.status]}`}>
+                            {o.status}
+                          </span>
+                        </div>
+
+                        {/* Details */}
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div className="flex items-center">
+                            <ClockIcon />
+                            <div className="ml-2">
+                              <p className="text-sm text-[#05E2F2]/70">Pickup</p>
+                              <p className="text-sm font-medium text-[#05E2F2]">
+                                {new Date(o.pickupTime).toLocaleDateString()}
+                              </p>
+                              <p className="text-xs text-[#05E2F2]/60">
+                                {new Date(o.pickupTime).toLocaleTimeString([], { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit',
+                                  second: '2-digit' 
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center">
+                            <DollarIcon />
+                            <div className="ml-2">
+                              <p className="text-sm text-[#05E2F2]/70">Total</p>
+                              <p className="text-lg font-bold text-[#05E2F2]">${o.totalPayment}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Items */}
+                        <div className="mb-4">
+                          <p className="text-sm font-medium text-[#05E2F2] mb-2">Items:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {o.items?.map((i, index) => (
+                              <span key={index} className="px-3 py-1 bg-[#05E2F2]/10 rounded-lg text-sm text-[#05E2F2]">
+                                {i.itemName} × {i.qty}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Status Selector */}
+                        <select
+                          className="w-full p-2 border border-[#05E2F2]/30 rounded-lg mb-4 focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200 text-[#05E2F2]"
+                          value={o.status}
+                          onChange={(e) => updateStatus(o._id, e.target.value)}
+                        >
+                          <option>Pending</option>
+                          <option>In-Progress</option>
+                          <option>Completed</option>
+                          <option>Delivered</option>
+                        </select>
+
+                        {/* Actions */}
+                        <div className="flex gap-2">
+                          <button
+                            className="flex-1 flex items-center justify-center gap-2 p-2 bg-[#05E2F2] text-white rounded-lg hover:bg-[#05E2F2]/90 hover:shadow-md transition-all duration-200"
+                            onClick={() => setEditingOrder(o)}
+                          >
+                            <EditIcon />
+                            Edit
+                          </button>
+                          <button
+                            className="flex-1 flex items-center justify-center gap-2 p-2 bg-[#05E2F2]/10 text-[#05E2F2] rounded-lg hover:bg-[#05E2F2]/20 hover:shadow-md transition-all duration-200"
+                            onClick={() => deleteOrder(o._id)}
+                          >
+                            <TrashIcon />
+                            Delete
+                          </button>
+                          <button
+                            className="flex-1 flex items-center justify-center gap-2 p-2 bg-[#05E2F2]/20 text-[#05E2F2] rounded-lg hover:bg-[#05E2F2]/30 hover:shadow-md transition-all duration-200"
+                            onClick={() => handlePrint(o)}
+                          >
+                            <PrintIcon />
+                            Print
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column - Stats */}
+          <div className="lg:col-span-1">
+            {/* Stats Card */}
+            <div className="bg-[#05E2F2] rounded-2xl shadow-xl p-6 text-white mb-6">
+              <h3 className="text-xl font-bold mb-6">Overview</h3>
+              <div className="space-y-4">
+                <div className="bg-white/20 p-4 rounded-xl">
+                  <p className="text-sm opacity-90">Total Orders</p>
+                  <p className="text-3xl font-bold">{orders.length}</p>
+                </div>
+                <div className="bg-white/20 p-4 rounded-xl">
+                  <p className="text-sm opacity-90">Active Customers</p>
+                  <p className="text-3xl font-bold">{customers.length}</p>
+                </div>
+                <div className="bg-white/20 p-4 rounded-xl">
+                  <p className="text-sm opacity-90">Available Items</p>
+                  <p className="text-3xl font-bold">{itemsList.length}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Status */}
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-[#05E2F2]/20">
+              <h3 className="text-lg font-bold text-[#05E2F2] mb-4">Order Status</h3>
+              <div className="space-y-3">
+                {Object.entries(statusColors).map(([status, colorClass]) => {
+                  const count = orders.filter(o => o.status === status).length;
+                  return (
+                    <div key={status} className="flex items-center justify-between p-3 hover:bg-[#05E2F2]/5 rounded-lg transition-colors duration-200">
+                      <div className="flex items-center">
+                        <div className={`w-3 h-3 rounded-full mr-3 bg-[#05E2F2] ${colorClass.includes('20') ? 'opacity-20' : colorClass.includes('30') ? 'opacity-30' : colorClass.includes('40') ? 'opacity-40' : 'opacity-50'}`}></div>
+                        <span className="text-[#05E2F2]">{status}</span>
+                      </div>
+                      <span className="font-bold text-[#05E2F2]">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div className="bg-white rounded-2xl shadow-lg p-6 mt-6 border border-[#05E2F2]/20">
+              <h3 className="text-lg font-bold text-[#05E2F2] mb-4">Recent Activity</h3>
+              <div className="space-y-4">
+                {orders.slice(0, 3).map((o) => (
+                  <div key={o._id} className="flex items-center p-3 hover:bg-[#05E2F2]/5 rounded-lg transition-colors duration-200">
+                    <div className="w-10 h-10 rounded-full bg-[#05E2F2]/10 flex items-center justify-center mr-3">
+                      <PackageIcon />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-[#05E2F2]">{o.customer?.fullName}</p>
+                      <p className="text-sm text-[#05E2F2]/70">
+                        ${o.totalPayment} • {o.items?.length} item(s)
+                      </p>
+                      <p className="text-xs text-[#05E2F2]/50">
+                        {getRelativeTime(o.registerDate || o.createdAt)}
+                      </p>
+                    </div>
+                    <ChevronRightIcon />
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Edit Modal */}
+        {editingOrder && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-[#05E2F2]/20">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-[#05E2F2]/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 rounded-xl bg-[#05E2F2] flex items-center justify-center mr-3">
+                      <EditIcon />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-[#05E2F2]">Edit Order</h2>
+                      <p className="text-sm text-[#05E2F2]/70">Order #{editingOrder._id?.slice(-6)}</p>
+                    </div>
+                  </div>
+                  <button
+                    className="p-2 hover:bg-[#05E2F2]/10 rounded-lg transition-colors duration-200"
+                    onClick={() => setEditingOrder(null)}
+                  >
+                    <XIcon />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6">
+                {/* Edit Items */}
+                <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                  {editingOrder.items.map((row, index) => (
+                    <div key={index} className="bg-[#05E2F2]/5 p-4 rounded-xl border border-[#05E2F2]/20">
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div className="col-span-2">
+                          <select
+                            className="w-full p-3 border border-[#05E2F2]/30 rounded-lg focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200"
+                            value={row.itemName}
+                            onChange={(e) =>
+                              updateItemField(index, "itemName", e.target.value, setEditingOrder, editingOrder)
+                            }
+                          >
+                            {itemsList.map((item) => (
+                              <option key={item._id} value={item.name}>
+                                {item.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <input
+                            type="number"
+                            placeholder="Quantity"
+                            className="w-full p-3 border border-[#05E2F2]/30 rounded-lg focus:ring-2 focus:ring-[#05E2F2] focus:border-transparent transition-all duration-200"
+                            value={row.qty}
+                            onChange={(e) =>
+                              updateItemField(index, "qty", e.target.value, setEditingOrder, editingOrder)
+                            }
+                            min="1"
+                          />
+                        </div>
+                        <div className="flex items-center justify-end">
+                          {editingOrder.items.length > 1 && (
+                            <button
+                              className="p-2 text-[#05E2F2] hover:bg-[#05E2F2]/10 rounded-lg transition-colors duration-200"
+                              onClick={() => removeItemRow(index, setEditingOrder, editingOrder)}
+                            >
+                              <TrashIcon />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add Item Button */}
+                <button
+                  className="w-full flex items-center justify-center p-3 border-2 border-dashed border-[#05E2F2]/30 rounded-xl text-[#05E2F2] hover:border-[#05E2F2] hover:text-[#05E2F2] transition-all duration-200 mt-4"
+                  onClick={() => addItemRow(setEditingOrder, editingOrder)}
+                >
+                  <PlusIcon />
+                  <span className="ml-2">Add Another Item</span>
+                </button>
+
+                {/* Modal Actions */}
+                <div className="flex gap-3 mt-6">
+                  <button
+                    className="flex-1 flex items-center justify-center gap-2 p-3 bg-[#05E2F2] text-white font-semibold rounded-xl hover:bg-[#05E2F2]/90 hover:shadow-lg transition-all duration-200"
+                    onClick={submitUpdate}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <SaveIcon />
+                        Save Changes
+                      </>
+                    )}
+                  </button>
+                  <button
+                    className="flex-1 p-3 border border-[#05E2F2]/30 text-[#05E2F2] font-semibold rounded-xl hover:bg-[#05E2F2]/5 transition-all duration-200"
+                    onClick={() => setEditingOrder(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Print Preview Modal */}
+        {showPrintPreview && printData && (
+          <PrintPreviewModal 
+            data={printData} 
+            onClose={closePrintModal} 
+            onPrint={executePrint}
+          />
+        )}
+      </div>
+
+      {/* Print Receipt Component (for actual printing) - This is always rendered but hidden */}
+      {printData && <PrintReceipt data={printData} />}
+    </>
   );
 };
 
