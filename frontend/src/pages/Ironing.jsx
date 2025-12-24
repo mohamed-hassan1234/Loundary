@@ -284,7 +284,7 @@ const Ironing = () => {
       const newItems = [...formData.items];
       newItems[index][field] = field === "qty" ? Number(e.target.value) : e.target.value;
       // Calculate ironingPrice automatically (assuming $0.5 per item)
-      const total = newItems.reduce((acc, it) => acc + it.qty * 0.5, 0);
+      const total = newItems.reduce((acc, it) => acc + it.qty * 0.25, 0);
       setFormData({ ...formData, items: newItems, ironingPrice: total });
     } else {
       setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -299,7 +299,7 @@ const Ironing = () => {
 
   const removeItemRow = (index) => {
     const newItems = formData.items.filter((_, i) => i !== index);
-    const total = newItems.reduce((acc, it) => acc + it.qty * 0.5, 0);
+    const total = newItems.reduce((acc, it) => acc + it.qty * 0.25, 0);
     setFormData({ ...formData, items: newItems, ironingPrice: total });
   };
 
@@ -679,8 +679,8 @@ const Ironing = () => {
                           <td className="p-3 border-t border-gray-200 text-center">{index + 1}</td>
                           <td className="p-3 border-t border-gray-200">{item.itemName || "N/A"}</td>
                           <td className="p-3 border-t border-gray-200 text-center">{item.qty || "1"}</td>
-                          <td className="p-3 border-t border-gray-200 text-center">$0.50</td>
-                          <td className="p-3 border-t border-gray-200 text-center">${((item.qty || 1) * 0.5).toFixed(2)}</td>
+                          <td className="p-3 border-t border-gray-200 text-center">$0.25</td>
+                          <td className="p-3 border-t border-gray-200 text-center">${((item.qty || 1) * 0.25).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1159,7 +1159,7 @@ const Ironing = () => {
                       </div>
                       <div className="text-right">
                         <p className="text-sm text-[#05E2F2]/70">Price per item</p>
-                        <p className="text-lg font-semibold text-[#05E2F2]">$0.50</p>
+                        <p className="text-lg font-semibold text-[#05E2F2]">$0.25</p>
                       </div>
                     </div>
                   </div>

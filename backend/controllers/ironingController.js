@@ -5,7 +5,7 @@ const Customer = require("../models/Customer"); // Assuming Customer model exist
 function calculateTotal(items) {
   let total = 0;
   for (const it of items) {
-    total += it.qty * 0.5; // automatic price calculation per item
+    total += it.qty * 0.25; // automatic price calculation per item
   }
   return total;
 }
@@ -17,7 +17,7 @@ exports.createIroningOrder = async (req, res) => {
   try {
     const { customer, items, pickupTime } = req.body;
 
-    const ironingPrice = items.reduce((acc, it) => acc + it.qty * 0.5, 0);
+    const ironingPrice = items.reduce((acc, it) => acc + it.qty * 0.25, 0);
 
     const order = await IroningOrder.create({
       customer,
